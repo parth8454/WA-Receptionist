@@ -1,3 +1,3 @@
 # WA-Receptionist
 
-OMG is the spelling correcct??
+OMG is the spelling correct?? Maybe

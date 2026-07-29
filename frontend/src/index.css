@@ -1,3 +1,16 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+}
+
+body {
+    overflow-x: hidden;
+}
 :root {
   --text: #6b6375;
   --text-h: #08060d;

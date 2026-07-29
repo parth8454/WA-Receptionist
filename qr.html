@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Scan this with WhatsApp</h2>
+<div id="qr"></div>
+<script>
+// Connect to QR stream
+const evtSource = new EventSource('http://localhost:3000/api/v1/shop/connect/6a3ad25d6a57ff128b337671');
+
+evtSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.qr) {
+        document.getElementById('qr').innerHTML = `<img src="${data.qr}" width="300"/>`;
+    }
+    if (data.status === 'connected') {
+        document.getElementById('qr').innerHTML = '<h1>✅ Connected!</h1>';
+        evtSource.close();
+    }
+};
+</script>
+</body>
+</html>

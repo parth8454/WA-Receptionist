@@ -1,77 +1,76 @@
-# WA-Receptionist
-# Multitenant WhatsApp AI Assistant (SaaS Architecture)
+# Multitenant WhatsApp Auto Assistant (SaaS Architecture)
 
-A scalable, multitenant backend service that allows multiple users to connect their individual WhatsApp accounts and deploy custom AI assistants simultaneously. Built with Node.js, Baileys, and Redis, this architecture isolates user sessions, manages concurrent WebSockets, and scales conversational memory efficiently.
+A scalable, multitenant backend service that allows multiple users (shops or businesses) to connect their individual WhatsApp accounts and deploy automated assistants simultaneously. Built with Node.js and Baileys, this architecture isolates user sessions, manages concurrent WebSockets, and organizes data using a clean MVC (Model-View-Controller) pattern.
 
 ## Core Features
 
-* **Multi-Session Management:** Dynamically creates, stores, and restores multiple independent WhatsApp sessions (via the Baileys library) on a single Node.js instance.
-* **Tenant Data Isolation:** Ensures that chat histories, system prompts, and AI contexts are strictly isolated per user and per phone number.
-* **Distributed In-Memory Caching:** Utilizes Redis for high-performance conversation history storage, implementing automatic Time-To-Live (TTL) cleanup without blocking the main thread.
-* **Dynamic QR Code Routing:** Uses Server-Sent Events (SSE) to stream unique authentication QR codes to specific tenant dashboards based on user IDs.
-* **API Rate Limit Handling:** Implements asynchronous queuing to prevent mass-message delivery upon server restarts from triggering third-party API rate limits.
+* **Multi-Session Management:** Dynamically creates, stores, and restores multiple independent WhatsApp sessions on a single Node.js instance.
+* **Tenant Data Isolation:** Ensures that chat histories, customer leads, and shop configurations are strictly isolated per user within the database.
+* **Structured Data Models:** Uses dedicated models to track Customers, Leads, Messages, Products, and Shop configurations.
+* **Dynamic QR Code Routing:** Streams unique authentication QR codes to the frontend dashboard based on the specific shop or user authenticating.
+* **Secure Authentication:** Implements OTP-based signup and middleware validation to protect tenant routes and webhooks.
 
-## Architecture Overview
+## Architecture & Directory Structure
 
-Unlike a single-tenant setup, this architecture separates the connection logic from the AI processing logic. 
-1. A user requests a new session via an HTTP endpoint.
-2. The server initializes a dedicated Baileys socket for that tenant and streams the QR code.
-3. Upon authentication, the session keys are saved to a designated directory tied to the tenant ID.
-4. Incoming messages are routed through a central webhook manager, which fetches the specific tenant's configuration and AI prompt before querying the LLM.
+The project is divided into a frontend client and a comprehensive backend API (`whatsapp-auto`). The backend follows a structured MVC design pattern:
+
+* **`/frontend`** - Contains the client-side application and user dashboard UI.
+* **`/whatsapp-auto`** - The core backend Node.js application directory.
+  * **`/controllers`** - Contains the core execution logic for the application.
+    * `authController.js`, `Signup_otp.js` - Manages user authentication and OTP generation.
+    * `shopController.js` - Manages shop-specific settings and provisioning.
+    * `webhookController.js` - Processes incoming WhatsApp messages and triggers the AI/Auto-reply logic.
+  * **`/Middle`** - Houses middleware functions to protect routes.
+    * `/SingupValidation` - Validates incoming user registration data.
+    * `auth.js` - Verifies user tokens/sessions before allowing route access.
+  * **`/models`** - Defines the database schemas.
+    * `Customer.js`, `Lead.js` - Tracks users interacting with the bots.
+    * `Message.js` - Stores conversation histories.
+    * `Product.js`, `Shop.js` - Manages tenant-specific inventory and store configurations.
+    * `otp.js` - Manages temporary authentication codes.
+  * **`/routes`** - Defines the Express API endpoints.
+    * `authRoutes.js`, `shopRoutes.js`, `webhookRoutes.js` - Maps endpoints to their respective controllers.
+  * **`/Services`** - Houses the core background services, such as the WhatsApp socket initialization (Baileys) and API integrations.
+  * **`/sessions`** - Automatically generated directory where the encrypted WhatsApp authentication keys are stored per tenant.
 
 ## Prerequisites
 
-To run this architecture, you must have the following installed in your environment:
+To run this architecture, you must have the following installed:
 
-* Node.js (v18 or higher)
-* Redis Server (for scalable session memory)
+* Node.js (v18 or higher recommended)
+* A supported Database (e.g., MongoDB, given the typical Model structure)
 * npm or yarn
-* An active LLM API Key (e.g., Groq)
 
 ## Installation
 
-1. Clone the repository to your server:
+1. Clone the repository to your local machine or server:
    \`\`\`bash
-   git clone https://github.com/YourUsername/whatsapp-multitenant-saas.git
+   git clone https://github.com/YourUsername/whatsapp-auto-saas.git
    \`\`\`
 
-2. Navigate into the directory and install dependencies:
+2. Navigate into the backend directory and install dependencies:
    \`\`\`bash
-   cd whatsapp-multitenant-saas
+   cd whatsapp-auto
    npm install
    \`\`\`
 
-3. Create a `.env` file in the root directory to define your environment variables:
-   \`\`\`text
-   PORT=3000
-   REDIS_URL=redis://127.0.0.1:6379
-   DEFAULT_GROQ_API_KEY=your_api_key_here
-   SESSION_DIRECTORY=./tenant_sessions
-   \`\`\`
+3. Create a `.env` file in the `whatsapp-auto` directory with your environment variables (Database URIs, API keys, Port configurations).
 
 ## Usage
 
-1. Start your local Redis server. (If using Linux, you can typically run `sudo systemctl start redis`).
-
-2. Start the Node.js backend:
+1. Start the Node.js backend:
    \`\`\`bash
-   node server.js
+   node index.js
    \`\`\`
+   *(Note: replace `index.js` with your main entry file if it differs)*
 
-3. **Initialize a New Tenant:**
-   Send a POST request to `/api/sessions/create` with a unique tenant ID to generate a new WhatsApp connection instance.
+2. **Initialize a Shop/Tenant:**
+   Use the frontend or hit the `/routes/authRoutes.js` endpoints to create a new shop account and verify via OTP.
 
-4. **Connect a Device:**
-   Listen to the SSE stream at `/api/sessions/qr/:tenantId` to render the QR code on your frontend application.
-
-## Directory Structure
-
-* `/controllers` - Contains the logic for HTTP endpoints and tenant provisioning.
-* `/services` - Houses the core logic for WhatsApp sockets (Baileys) and LLM API integrations.
-* `/config` - Database and Redis connection setups.
-* `/tenant_sessions` - Automatically generated folder where encrypted authentication keys are stored per tenant.
+3. **Connect a Device:**
+   Request a session creation. The backend will initialize a Baileys socket in the `/Services` folder and save the auth keys into the `/sessions` folder. Scan the resulting QR code on the frontend.
 
 ## Troubleshooting
 
-* **Redis Connection Errors:** Ensure your Redis instance is running locally on port 6379 or update the `REDIS_URL` in your environment variables to match your hosted Redis cluster.
-* **Session Conflicts:** If a specific tenant's bot stops responding but others remain active, delete that specific tenant's folder inside `/tenant_sessions` and prompt them to re-scan their QR code. This resolves localized MAC decryption errors without resetting the entire server.
+* **Session Conflicts:** If a specific shop's bot stops responding, delete that specific tenant's folder inside `/sessions` and prompt them to re-scan their QR code from the frontend dashboard. 
+* **Middleware Blocks:** If endpoints are returning unauthorized errors, verify that `auth.js` is correctly parsing the tokens and that the user's shop ID is correctly attached to the request payload.
